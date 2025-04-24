@@ -76,6 +76,189 @@ struct PreparedData {
     offset: usize,
 }
 
+/// Packs two u4 values (represented as u8, must be <= 15) into a single u8.
+/// Low nibble value goes into the lower 4 bits, high nibble value into the upper 4 bits.
+#[inline]
+fn pack_u4(low: u8, high: u8) -> u8 {
+    let high_nibble_area_mask: u8 = 0b11110000;
+    let low_nibble_area_mask: u8 = 0b00001111;
+    let value_mask: u8 = 0b00001111;
+
+    let high_part = ((high & value_mask) << 4) & high_nibble_area_mask;
+    let low_part = (low & value_mask) & low_nibble_area_mask;
+
+    high_part | low_part
+}
+
+/// Unpacks a single u8 into two u4 values (represented as u8).
+/// Returns a tuple (low_nibble_value, high_nibble_value).
+#[inline]
+fn unpack_u4(packed: u8) -> (u8, u8) {
+    let low_nibble_mask: u8 = 0b00001111;
+
+    let low_value = packed & low_nibble_mask;
+    let high_value = (packed >> 4) & low_nibble_mask;
+
+    (low_value, high_value)
+}
+
+/// Packs two i4 values (represented as i8, must be between -8 and 7) into a single u8.
+/// Low nibble value goes into the lower 4 bits, high nibble value into the upper 4 bits.
+#[inline]
+fn pack_i4(low: i8, high: i8) -> u8 {
+    let high_nibble_area_mask: u8 = 0b11110000;
+    let low_nibble_area_mask: u8 = 0b00001111;
+    let value_mask: u8 = 0b00001111;
+
+    let low_bits = (low as u8) & value_mask;
+    let high_bits = (high as u8) & value_mask;
+
+    let high_part = (high_bits << 4) & high_nibble_area_mask;
+    let low_part = low_bits & low_nibble_area_mask;
+
+    high_part | low_part
+}
+
+/// Unpacks a single u8 into two i4 values (represented as i8).
+/// Interprets the nibbles as 4-bit two's complement integers.
+/// Returns a tuple (low_nibble_value, high_nibble_value).
+#[inline]
+fn unpack_i4(packed: u8) -> (i8, i8) {
+    let nibble_mask: u8 = 0b00001111;
+    let sign_bit_mask: u8 = 0b00001000;
+    let sign_extend_mask: u8 = 0b11110000; // Mask to OR for negative sign extension
+
+    let low_bits = packed & nibble_mask;
+    let high_bits = (packed >> 4) & nibble_mask;
+
+    let low_signed = if (low_bits & sign_bit_mask) != 0 {
+        (low_bits | sign_extend_mask) as i8
+    } else {
+        low_bits as i8
+    };
+
+    let high_signed = if (high_bits & sign_bit_mask) != 0 {
+        (high_bits | sign_extend_mask) as i8
+    } else {
+        high_bits as i8
+    };
+
+    (low_signed, high_signed)
+}
+
+/// Computes the number of rows and columns for a given shape.
+/// Returns a tuple (rows, cols).
+fn compute_rows_cols(shape: &[usize]) -> (usize, usize) {
+    let dims = shape.len();
+    match dims {
+        0 => (0, 0),
+        1 => (1, shape[0]),
+        _ => {
+            let cols = shape[dims - 1];
+            let rows = shape.iter().take(dims - 1).product();
+            (rows, cols)
+        }
+    }
+}
+
+/// Serializes a tensor of type INT4 into a byte buffer.
+/// Uses padding to ensure shape is a multiple of 2.
+pub fn serialize_i4(shape: &[usize], data: &[i8]) -> Vec<u8> {
+    let (rows, cols) = compute_rows_cols(shape);
+    let mut buffer: Vec<u8> = Vec::with_capacity(rows * (cols / 2 + cols % 2));
+    for row in 0..rows {
+        for col in (0..cols).step_by(2) {
+            let idx = row * cols + col;
+            let a = data[idx];
+            let b = if col + 1 < cols { data[idx + 1] } else { 0 };
+            let packed = pack_i4(b, a);
+            buffer.push(packed);
+        }
+    }
+
+    buffer
+}
+
+/// Deserializes a byte buffer into a tensor of type INT4.
+/// Assumes the buffer is correctly formatted.
+pub fn deserialize_i4(shape: &[usize], packed: &[u8]) -> Vec<i8> {
+    let (rows, cols) = compute_rows_cols(shape);
+    let count = rows * cols;
+    let mut buffer: Vec<i8> = Vec::with_capacity(count);
+
+    for idx in 0..count {
+        let row = idx / cols;
+        let raw_idx = idx + row * cols % 2;
+
+        let byte = packed[raw_idx / 2];
+        let (low, high) = unpack_i4(byte);
+
+        let val = if raw_idx % 2 == 0 { high } else { low };
+        buffer.push(val);
+    }
+
+    buffer
+}
+
+/// Serializes a tensor of type UINT4 into a byte buffer.
+/// Assumes the tensor is correctly formatted.
+pub fn serialize_u4(shape: &[usize], data: &[u8]) -> Vec<u8> {
+    let (rows, cols) = compute_rows_cols(shape);
+    let mut buffer: Vec<u8> = Vec::with_capacity(rows * (cols / 2 + cols % 2));
+    for row in 0..rows {
+        for col in (0..cols).step_by(2) {
+            let idx = row * cols + col;
+            let a = data[idx];
+            let b = if col + 1 < cols { data[idx + 1] } else { 0 };
+            let packed = pack_u4(b, a);
+            buffer.push(packed);
+        }
+    }
+
+    buffer
+}
+
+/// Deserializes a tensor of type UINT4 from a byte buffer.
+/// Assumes the buffer is correctly formatted.
+pub fn deserialize_u4(shape: &[usize], packed: &[u8]) -> Vec<u8> {
+    let (rows, cols) = compute_rows_cols(shape);
+    let count = rows * cols;
+    let mut buffer: Vec<u8> = Vec::with_capacity(count);
+
+    for idx in 0..count {
+        let row = idx / cols;
+        let raw_idx = idx + row * cols % 2;
+
+        let byte = packed[raw_idx / 2];
+        let (low, high) = unpack_u4(byte);
+
+        let val = if raw_idx % 2 == 0 { high } else { low };
+        buffer.push(val);
+    }
+
+    buffer
+}
+
+/// Computes the size in bytes of a tensor with the given data type and shape.
+/// This function takes into account specific details about storing INT4 tensors.
+pub fn compute_size(dtype: Dtype, shape: &[usize]) -> usize {
+    let n_elements: usize = shape.iter().product();
+    match dtype {
+        Dtype::PackedI4 | Dtype::PackedU4 => {
+            let (rows, cols) = compute_rows_cols(&shape);
+
+            let mut bits_per_row = cols * dtype.size_in_bits();
+            if cols % 2 != 0 {
+                bits_per_row += dtype.size_in_bits()
+            }
+
+            let bytes_per_row = bits_per_row / 8;
+            bytes_per_row * rows
+        }
+        _ => n_elements * dtype.size_in_bits() / 8,
+    }
+}
+
 /// The trait necessary to enable safetensors to serialize a tensor
 /// If you have an owned tensor like this:
 ///
@@ -150,7 +333,7 @@ struct PreparedData {
 ///    }
 ///    fn data_len(&self) -> usize{
 ///        let n: usize = self.shape.iter().product();
-///        let bytes_per_element = self.dtype.size();
+///        let bytes_per_element = self.dtype.size_in_bits() / 8;
 ///        n * bytes_per_element
 ///    }
 /// }
@@ -530,9 +713,24 @@ impl Metadata {
                 .cloned()
                 .try_fold(1usize, usize::checked_mul)
                 .ok_or(SafeTensorError::ValidationOverflow)?;
-            let nbytes = nelements
-                .checked_mul(info.dtype.size())
-                .ok_or(SafeTensorError::ValidationOverflow)?;
+            let nbytes = match info.dtype {
+                Dtype::PackedI4 | Dtype::PackedU4 => {
+                    let (rows, cols) = compute_rows_cols(&info.shape);
+
+                    let mut bits_per_row = cols * info.dtype.size_in_bits();
+                    if cols % 2 != 0 {
+                        bits_per_row += info.dtype.size_in_bits()
+                    }
+
+                    let bytes_per_row = bits_per_row / 8;
+
+                    rows.checked_mul(bytes_per_row)
+                        .ok_or(SafeTensorError::ValidationOverflow)?
+                }
+                _ => nelements
+                    .checked_mul(info.dtype.size_in_bits() / 8)
+                    .ok_or(SafeTensorError::ValidationOverflow)?,
+            };
             if (e - s) != nbytes {
                 return Err(SafeTensorError::TensorInvalidInfo);
             }
@@ -591,7 +789,7 @@ impl View for &TensorView<'_> {
     }
 
     fn data_len(&self) -> usize {
-        self.data.len()
+        compute_size(self.dtype, &self.shape)
     }
 }
 
@@ -609,7 +807,7 @@ impl View for TensorView<'_> {
     }
 
     fn data_len(&self) -> usize {
-        self.data.len()
+        compute_size(self.dtype, &self.shape)
     }
 }
 
@@ -621,13 +819,14 @@ impl<'data> TensorView<'data> {
         data: &'data [u8],
     ) -> Result<Self, SafeTensorError> {
         let n = data.len();
-        let n_elements: usize = shape.iter().product();
-        if n != n_elements * dtype.size() {
+        let size_in_bytes = compute_size(dtype, &shape);
+        if dtype != Dtype::PackedI4 && dtype != Dtype::PackedU4 && n != size_in_bytes {
             Err(SafeTensorError::InvalidTensorView(dtype, shape, n))
         } else {
             Ok(Self { dtype, shape, data })
         }
     }
+
     /// The current tensor dtype
     pub fn dtype(&self) -> Dtype {
         self.dtype
@@ -701,27 +900,33 @@ pub enum Dtype {
     I64,
     /// Unsigned integer (64-bit)
     U64,
+    /// Packed unsigned integer (4-bit)
+    PackedU4,
+    /// Packed signed integer (4-bit)
+    PackedI4,
 }
 
 impl Dtype {
-    /// Gives out the size (in bytes) of 1 element of this dtype.
-    pub fn size(&self) -> usize {
+    /// Gives out the size (in bits) of 1 element of this dtype.
+    pub fn size_in_bits(&self) -> usize {
         match self {
-            Dtype::BOOL => 1,
-            Dtype::U8 => 1,
-            Dtype::I8 => 1,
-            Dtype::F8_E5M2 => 1,
-            Dtype::F8_E4M3 => 1,
-            Dtype::I16 => 2,
-            Dtype::U16 => 2,
-            Dtype::I32 => 4,
-            Dtype::U32 => 4,
-            Dtype::I64 => 8,
-            Dtype::U64 => 8,
-            Dtype::F16 => 2,
-            Dtype::BF16 => 2,
-            Dtype::F32 => 4,
-            Dtype::F64 => 8,
+            Dtype::BOOL => 8,
+            Dtype::PackedU4 => 4,
+            Dtype::PackedI4 => 4,
+            Dtype::U8 => 8,
+            Dtype::I8 => 8,
+            Dtype::F8_E5M2 => 8,
+            Dtype::F8_E4M3 => 8,
+            Dtype::I16 => 16,
+            Dtype::U16 => 16,
+            Dtype::I32 => 32,
+            Dtype::U32 => 32,
+            Dtype::I64 => 64,
+            Dtype::U64 => 64,
+            Dtype::F16 => 16,
+            Dtype::BF16 => 16,
+            Dtype::F32 => 32,
+            Dtype::F64 => 64,
         }
     }
 }
@@ -782,7 +987,7 @@ mod tests {
                         // This cannot overflow because the size of
                         // the vector and elements are so small.
                         let length: usize = shape.iter().product();
-                        let end = start + length * dtype.size();
+                        let end = start + length * dtype.size_in_bits() / 8;
                         let tensor = TensorInfo {
                             dtype: *dtype,
                             shape,
@@ -825,6 +1030,7 @@ mod tests {
                 assert!(tensors.tensor(name).is_ok());
             }
         }
+
         #[test]
         fn test_roundtrip(metadata in arbitrary_metadata()) {
             let data: Vec<u8> = (0..data_size(&metadata)).map(|x| x as u8).collect();
@@ -839,10 +1045,184 @@ mod tests {
             for name in before.names() {
                 let tensor_before = before.tensor(name).unwrap();
                 let tensor_after = after.tensor(name).unwrap();
-                assert_eq!(tensor_after.data().as_ptr() as usize % tensor_after.dtype().size(), 0);
+                assert_eq!(tensor_after.data().as_ptr() as usize % (tensor_after.dtype().size_in_bits() / 8), 0);
                 assert_eq!(tensor_before, tensor_after);
             }
         }
+    }
+
+    #[test]
+    fn test_packing_unpacking_u4() {
+        let low: u8 = 5; // 0101
+        let high: u8 = 12; // 1100
+
+        let packed_u4 = pack_u4(low, high); // Expected: 1100_0101 = 197
+        assert_eq!(packed_u4, 197);
+        let (unpacked_low, unpacked_high) = unpack_u4(packed_u4);
+
+        assert_eq!(low, unpacked_low);
+        assert_eq!(high, unpacked_high);
+    }
+
+    #[test]
+    fn test_packing_unpacking_i4_positive() {
+        let low: i8 = 3; // 0011
+        let high: i8 = 7; // 0111
+
+        let packed_i4 = pack_i4(low, high); // Expected: 0111_0011 = 115
+        assert_eq!(packed_i4, 115);
+        let (unpacked_low, unpacked_high) = unpack_i4(packed_i4);
+
+        assert_eq!(low, unpacked_low);
+        assert_eq!(high, unpacked_high);
+    }
+
+    #[test]
+    fn test_packing_unpacking_i4_negative() {
+        let low: i8 = -1; // 1111
+        let high: i8 = -8; // 1000
+
+        let packed_i4 = pack_i4(low, high); // Expected: 1000_1111 = 143
+        assert_eq!(packed_i4, 143);
+        let (unpacked_low, unpacked_high) = unpack_i4(packed_i4);
+
+        assert_eq!(low, unpacked_low);
+        assert_eq!(high, unpacked_high);
+    }
+
+    #[test]
+    fn test_packing_unpacking_i4_mixed() {
+        let low: i8 = 7; // 0111
+        let high: i8 = -8; // 1000
+
+        let packed_i4 = pack_i4(low, high); // Expected: 1000_0111 = 135
+        assert_eq!(packed_i4, 135);
+        let (unpacked_low, unpacked_high) = unpack_i4(packed_i4);
+
+        assert_eq!(low, unpacked_low);
+        assert_eq!(high, unpacked_high);
+    }
+
+    #[test]
+    fn test_roundtrip_1d_i4() {
+        let shape = vec![6];
+        let data: Vec<i8> = vec![3, 7, -1, -8, 2, -5];
+
+        let packed = serialize_i4(&shape, &data);
+        assert_eq!(3, packed.len());
+        assert_eq!(vec![55u8, 248, 43], packed);
+
+        let unpacked = deserialize_i4(&shape, &packed);
+        assert_eq!(data, unpacked);
+    }
+
+    #[test]
+    fn test_roundtrip_2d_i4() {
+        let shape = vec![2, 3];
+        let data: Vec<i8> = vec![3, 7, -1, -8, 2, -5];
+
+        let packed = serialize_i4(&shape, &data);
+        assert_eq!(4, packed.len());
+        assert_eq!(vec![55u8, 240, 130, 176], packed);
+
+        let unpacked = deserialize_i4(&shape, &packed);
+        assert_eq!(data, unpacked);
+    }
+
+    #[test]
+    fn test_roundtrip_3d_i4() {
+        let shape = vec![2, 2, 2];
+        let data: Vec<i8> = vec![1, -2, 3, -4, 5, -6, 7, -8];
+
+        let packed = serialize_i4(&shape, &data);
+        assert_eq!(4, packed.len());
+        assert_eq!(vec![30u8, 60, 90, 120], packed);
+
+        let unpacked = deserialize_i4(&shape, &packed);
+        assert_eq!(data, unpacked);
+    }
+
+    #[test]
+    fn test_roundtrip_1d_u4() {
+        let shape = vec![6];
+        let data: Vec<u8> = vec![13, 7, 1, 8, 2, 15];
+
+        let packed = serialize_u4(&shape, &data);
+        assert_eq!(3, packed.len());
+        assert_eq!(vec![215u8, 24, 47], packed);
+
+        let unpacked = deserialize_u4(&shape, &packed);
+        assert_eq!(data, unpacked);
+    }
+
+    #[test]
+    fn test_roundtrip_2d_u4() {
+        let shape = vec![2, 3];
+        let data: Vec<u8> = vec![3, 15, 1, 8, 2, 12];
+
+        let packed = serialize_u4(&shape, &data);
+        assert_eq!(4, packed.len());
+        assert_eq!(vec![63u8, 16, 130, 192], packed);
+
+        let unpacked = deserialize_u4(&shape, &packed);
+        assert_eq!(data, unpacked);
+    }
+
+    #[test]
+    fn test_roundtrip_3d_u4() {
+        let shape = vec![2, 2, 2];
+        let data: Vec<u8> = vec![3, 15, 1, 8, 2, 12, 1, 7];
+
+        let packed = serialize_u4(&shape, &data);
+        assert_eq!(4, packed.len());
+        assert_eq!(vec![63u8, 24, 44, 23], packed);
+
+        let unpacked = deserialize_u4(&shape, &packed);
+        assert_eq!(data, unpacked);
+    }
+
+    #[test]
+    fn test_tensor_data_len_3d() {
+        let shape = vec![1, 2, 3];
+        let data: Vec<u8> = vec![3, 15, 1, 8, 2, 12];
+
+        let attn_0 = TensorView::new(Dtype::PackedU4, shape, &data).unwrap();
+        let len = attn_0.data_len();
+        assert_eq!(4, len);
+    }
+
+    #[test]
+    fn test_packed_u4_roundtrip_3d_tensor() {
+        let shape = vec![1, 2, 3];
+        let data: Vec<u8> = vec![3, 15, 1, 8, 2, 12]; //63u8, 16, 130, 192
+        let packed: Vec<u8> = serialize_u4(&shape, &data);
+
+        let attn_0 = TensorView::new(Dtype::PackedU4, shape, &packed).unwrap();
+        let metadata: HashMap<String, TensorView> =
+            [("attn.0".to_string(), attn_0)].into_iter().collect();
+
+        let out = serialize(&metadata, &None).unwrap();
+        println!("{:?}", out);
+
+        let parsed = SafeTensors::deserialize(&out).unwrap();
+        println!("{:?}", parsed);
+    }
+
+    #[test]
+    fn test_packed_i4_roundtrip_3d_tensor() {
+        let shape = vec![1, 2, 3];
+        let data: Vec<i8> = vec![3, -2, 1, 7, -1, -7];
+        let packed: Vec<u8> = serialize_i4(&shape, &data);
+
+        let attn_0 = TensorView::new(Dtype::PackedI4, shape, &packed).unwrap();
+        let metadata: HashMap<String, TensorView> =
+            [("attn.0".to_string(), attn_0)].into_iter().collect();
+
+        let out = serialize(&metadata, &None).unwrap();
+        println!("{:?}", out);
+
+        let parsed = SafeTensors::deserialize(&out).unwrap();
+        println!("{:?}", parsed);
     }
 
     #[test]
@@ -926,7 +1306,10 @@ mod tests {
         );
         let parsed = SafeTensors::deserialize(&out).unwrap();
         let tensor = parsed.tensor("attn0").unwrap();
-        assert_eq!(tensor.data().as_ptr() as usize % tensor.dtype().size(), 0);
+        assert_eq!(
+            tensor.data().as_ptr() as usize % (tensor.dtype().size_in_bits() / 8),
+            0
+        );
     }
 
     #[test]
@@ -1015,13 +1398,14 @@ mod tests {
             .iter()
             .map(|(_, shape)| shape.iter().product::<usize>())
             .sum::<usize>()
-            * dtype.size(); // 4
+            * dtype.size_in_bits()
+            / 8; // 4
         let all_data = vec![0; n];
         let mut metadata = HashMap::with_capacity(tensors_desc.len());
         let mut offset = 0;
         for (name, shape) in tensors_desc {
             let n: usize = shape.iter().product();
-            let buffer = &all_data[offset..offset + n * dtype.size()];
+            let buffer = &all_data[offset..offset + n * dtype.size_in_bits() / 8];
             let tensor = TensorView::new(dtype, shape, buffer).unwrap();
             metadata.insert(name, tensor);
             offset += n;
