@@ -3,8 +3,8 @@ import unittest
 
 import torch
 
-from safetensors import safe_open
-from safetensors.torch import load, load_file, save, save_file
+from miraitensors import safe_open
+from miraitensors.torch import load, load_file, save, save_file
 
 
 try:

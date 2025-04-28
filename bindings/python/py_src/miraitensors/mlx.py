@@ -2,17 +2,17 @@ import os
 from typing import Dict, Optional, Union
 
 import numpy as np
-import tensorflow as tf
 
-from safetensors import numpy, safe_open
+import mlx.core as mx
+from miraitensors import numpy, safe_open
 
 
-def save(tensors: Dict[str, tf.Tensor], metadata: Optional[Dict[str, str]] = None) -> bytes:
+def save(tensors: Dict[str, mx.array], metadata: Optional[Dict[str, str]] = None) -> bytes:
     """
-    Saves a dictionary of tensors into raw bytes in safetensors format.
+    Saves a dictionary of tensors into raw bytes in miraitensors format.
 
     Args:
-        tensors (`Dict[str, tf.Tensor]`):
+        tensors (`Dict[str, mx.array]`):
             The incoming tensors. Tensors need to be contiguous and dense.
         metadata (`Dict[str, str]`, *optional*, defaults to `None`):
             Optional text only metadata you might want to save in your header.
@@ -25,27 +25,27 @@ def save(tensors: Dict[str, tf.Tensor], metadata: Optional[Dict[str, str]] = Non
     Example:
 
     ```python
-    from safetensors.tensorflow import save
-    import tensorflow as tf
+    from miraitensors.mlx import save
+    import mlx.core as mx
 
-    tensors = {"embedding": tf.zeros((512, 1024)), "attention": tf.zeros((256, 256))}
+    tensors = {"embedding": mx.zeros((512, 1024)), "attention": mx.zeros((256, 256))}
     byte_data = save(tensors)
     ```
     """
-    np_tensors = _tf2np(tensors)
+    np_tensors = _mx2np(tensors)
     return numpy.save(np_tensors, metadata=metadata)
 
 
 def save_file(
-    tensors: Dict[str, tf.Tensor],
+    tensors: Dict[str, mx.array],
     filename: Union[str, os.PathLike],
     metadata: Optional[Dict[str, str]] = None,
 ) -> None:
     """
-    Saves a dictionary of tensors into raw bytes in safetensors format.
+    Saves a dictionary of tensors into raw bytes in miraitensors format.
 
     Args:
-        tensors (`Dict[str, tf.Tensor]`):
+        tensors (`Dict[str, mx.array]`):
             The incoming tensors. Tensors need to be contiguous and dense.
         filename (`str`, or `os.PathLike`)):
             The filename we're saving into.
@@ -60,34 +60,34 @@ def save_file(
     Example:
 
     ```python
-    from safetensors.tensorflow import save_file
-    import tensorflow as tf
+    from miraitensors.mlx import save_file
+    import mlx.core as mx
 
-    tensors = {"embedding": tf.zeros((512, 1024)), "attention": tf.zeros((256, 256))}
-    save_file(tensors, "model.safetensors")
+    tensors = {"embedding": mx.zeros((512, 1024)), "attention": mx.zeros((256, 256))}
+    save_file(tensors, "model.miraitensors")
     ```
     """
-    np_tensors = _tf2np(tensors)
+    np_tensors = _mx2np(tensors)
     return numpy.save_file(np_tensors, filename, metadata=metadata)
 
 
-def load(data: bytes) -> Dict[str, tf.Tensor]:
+def load(data: bytes) -> Dict[str, mx.array]:
     """
-    Loads a safetensors file into tensorflow format from pure bytes.
+    Loads a miraitensors file into MLX format from pure bytes.
 
     Args:
         data (`bytes`):
             The content of a safetensors file
 
     Returns:
-        `Dict[str, tf.Tensor]`: dictionary that contains name as key, value as `tf.Tensor` on cpu
+        `Dict[str, mx.array]`: dictionary that contains name as key, value as `mx.array`
 
     Example:
 
     ```python
-    from safetensors.tensorflow import load
+    from miraitensors.mlx import load
 
-    file_path = "./my_folder/bert.safetensors"
+    file_path = "./my_folder/bert.miraitensors"
     with open(file_path, "rb") as f:
         data = f.read()
 
@@ -95,43 +95,44 @@ def load(data: bytes) -> Dict[str, tf.Tensor]:
     ```
     """
     flat = numpy.load(data)
-    return _np2tf(flat)
+    return _np2mx(flat)
 
 
-def load_file(filename: Union[str, os.PathLike]) -> Dict[str, tf.Tensor]:
+def load_file(filename: Union[str, os.PathLike]) -> Dict[str, mx.array]:
     """
-    Loads a safetensors file into tensorflow format.
+    Loads a miraitensors file into MLX format.
 
     Args:
         filename (`str`, or `os.PathLike`)):
             The name of the file which contains the tensors
 
     Returns:
-        `Dict[str, tf.Tensor]`: dictionary that contains name as key, value as `tf.Tensor`
+        `Dict[str, mx.array]`: dictionary that contains name as key, value as `mx.array`
 
     Example:
 
     ```python
-    from safetensors.tensorflow import load_file
+    from miraitensors.flax import load_file
 
-    file_path = "./my_folder/bert.safetensors"
+    file_path = "./my_folder/bert.miraitensors"
     loaded = load_file(file_path)
     ```
     """
     result = {}
-    with safe_open(filename, framework="tf") as f:
+    with safe_open(filename, framework="mlx") as f:
         for k in f.offset_keys():
             result[k] = f.get_tensor(k)
     return result
 
 
-def _np2tf(numpy_dict: Dict[str, np.ndarray]) -> Dict[str, tf.Tensor]:
+def _np2mx(numpy_dict: Dict[str, np.ndarray]) -> Dict[str, mx.array]:
     for k, v in numpy_dict.items():
-        numpy_dict[k] = tf.convert_to_tensor(v)
+        numpy_dict[k] = mx.array(v)
     return numpy_dict
 
 
-def _tf2np(tf_dict: Dict[str, tf.Tensor]) -> Dict[str, np.array]:
-    for k, v in tf_dict.items():
-        tf_dict[k] = v.numpy()
-    return tf_dict
+def _mx2np(mx_dict: Dict[str, mx.array]) -> Dict[str, np.array]:
+    new_dict = {}
+    for k, v in mx_dict.items():
+        new_dict[k] = np.asarray(v)
+    return new_dict

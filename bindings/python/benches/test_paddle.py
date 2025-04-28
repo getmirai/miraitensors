@@ -4,7 +4,7 @@ import tempfile
 import numpy as np
 
 import paddle
-from safetensors.paddle import load_file, save_file
+from miraitensors.paddle import load_file, save_file
 
 
 def create_gpt2(n_layers: int):

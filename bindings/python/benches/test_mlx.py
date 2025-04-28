@@ -5,7 +5,7 @@ import tempfile
 
 if platform.system() == "Darwin":
     import mlx.core as mx
-    from safetensors.mlx import load_file, save_file
+    from miraitensors.mlx import load_file, save_file
 
     def create_gpt2(n_layers: int):
         tensors = {}

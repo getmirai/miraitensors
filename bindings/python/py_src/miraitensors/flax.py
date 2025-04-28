@@ -3,16 +3,17 @@ from typing import Dict, Optional, Union
 
 import numpy as np
 
-import mlx.core as mx
-from safetensors import numpy, safe_open
+import jax.numpy as jnp
+from jax import Array
+from miraitensors import numpy, safe_open
 
 
-def save(tensors: Dict[str, mx.array], metadata: Optional[Dict[str, str]] = None) -> bytes:
+def save(tensors: Dict[str, Array], metadata: Optional[Dict[str, str]] = None) -> bytes:
     """
-    Saves a dictionary of tensors into raw bytes in safetensors format.
+    Saves a dictionary of tensors into raw bytes in miraitensors format.
 
     Args:
-        tensors (`Dict[str, mx.array]`):
+        tensors (`Dict[str, Array]`):
             The incoming tensors. Tensors need to be contiguous and dense.
         metadata (`Dict[str, str]`, *optional*, defaults to `None`):
             Optional text only metadata you might want to save in your header.
@@ -25,27 +26,27 @@ def save(tensors: Dict[str, mx.array], metadata: Optional[Dict[str, str]] = None
     Example:
 
     ```python
-    from safetensors.mlx import save
-    import mlx.core as mx
+    from miraitensors.flax import save
+    from jax import numpy as jnp
 
-    tensors = {"embedding": mx.zeros((512, 1024)), "attention": mx.zeros((256, 256))}
+    tensors = {"embedding": jnp.zeros((512, 1024)), "attention": jnp.zeros((256, 256))}
     byte_data = save(tensors)
     ```
     """
-    np_tensors = _mx2np(tensors)
+    np_tensors = _jnp2np(tensors)
     return numpy.save(np_tensors, metadata=metadata)
 
 
 def save_file(
-    tensors: Dict[str, mx.array],
+    tensors: Dict[str, Array],
     filename: Union[str, os.PathLike],
     metadata: Optional[Dict[str, str]] = None,
 ) -> None:
     """
-    Saves a dictionary of tensors into raw bytes in safetensors format.
+    Saves a dictionary of tensors into raw bytes in miraitensors format.
 
     Args:
-        tensors (`Dict[str, mx.array]`):
+        tensors (`Dict[str, Array]`):
             The incoming tensors. Tensors need to be contiguous and dense.
         filename (`str`, or `os.PathLike`)):
             The filename we're saving into.
@@ -60,34 +61,34 @@ def save_file(
     Example:
 
     ```python
-    from safetensors.mlx import save_file
-    import mlx.core as mx
+    from miraitensors.flax import save_file
+    from jax import numpy as jnp
 
-    tensors = {"embedding": mx.zeros((512, 1024)), "attention": mx.zeros((256, 256))}
-    save_file(tensors, "model.safetensors")
+    tensors = {"embedding": jnp.zeros((512, 1024)), "attention": jnp.zeros((256, 256))}
+    save_file(tensors, "model.miraitensors")
     ```
     """
-    np_tensors = _mx2np(tensors)
+    np_tensors = _jnp2np(tensors)
     return numpy.save_file(np_tensors, filename, metadata=metadata)
 
 
-def load(data: bytes) -> Dict[str, mx.array]:
+def load(data: bytes) -> Dict[str, Array]:
     """
-    Loads a safetensors file into MLX format from pure bytes.
+    Loads a miraitensors file into flax format from pure bytes.
 
     Args:
         data (`bytes`):
             The content of a safetensors file
 
     Returns:
-        `Dict[str, mx.array]`: dictionary that contains name as key, value as `mx.array`
+        `Dict[str, Array]`: dictionary that contains name as key, value as `Array` on cpu
 
     Example:
 
     ```python
-    from safetensors.mlx import load
+    from miraitensors.flax import load
 
-    file_path = "./my_folder/bert.safetensors"
+    file_path = "./my_folder/bert.miraitensors"
     with open(file_path, "rb") as f:
         data = f.read()
 
@@ -95,44 +96,43 @@ def load(data: bytes) -> Dict[str, mx.array]:
     ```
     """
     flat = numpy.load(data)
-    return _np2mx(flat)
+    return _np2jnp(flat)
 
 
-def load_file(filename: Union[str, os.PathLike]) -> Dict[str, mx.array]:
+def load_file(filename: Union[str, os.PathLike]) -> Dict[str, Array]:
     """
-    Loads a safetensors file into MLX format.
+    Loads a miraitensors file into flax format.
 
     Args:
         filename (`str`, or `os.PathLike`)):
             The name of the file which contains the tensors
 
     Returns:
-        `Dict[str, mx.array]`: dictionary that contains name as key, value as `mx.array`
+        `Dict[str, Array]`: dictionary that contains name as key, value as `Array`
 
     Example:
 
     ```python
-    from safetensors.flax import load_file
+    from miraitensors.flax import load_file
 
-    file_path = "./my_folder/bert.safetensors"
+    file_path = "./my_folder/bert.miraitensors"
     loaded = load_file(file_path)
     ```
     """
     result = {}
-    with safe_open(filename, framework="mlx") as f:
+    with safe_open(filename, framework="flax") as f:
         for k in f.offset_keys():
             result[k] = f.get_tensor(k)
     return result
 
 
-def _np2mx(numpy_dict: Dict[str, np.ndarray]) -> Dict[str, mx.array]:
+def _np2jnp(numpy_dict: Dict[str, np.ndarray]) -> Dict[str, Array]:
     for k, v in numpy_dict.items():
-        numpy_dict[k] = mx.array(v)
+        numpy_dict[k] = jnp.array(v)
     return numpy_dict
 
 
-def _mx2np(mx_dict: Dict[str, mx.array]) -> Dict[str, np.array]:
-    new_dict = {}
-    for k, v in mx_dict.items():
-        new_dict[k] = np.asarray(v)
-    return new_dict
+def _jnp2np(jnp_dict: Dict[str, Array]) -> Dict[str, np.array]:
+    for k, v in jnp_dict.items():
+        jnp_dict[k] = np.asarray(v)
+    return jnp_dict

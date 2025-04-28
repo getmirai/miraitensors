@@ -5,7 +5,7 @@ import h5py
 import numpy as np
 import tensorflow as tf
 
-from safetensors.tensorflow import load_file, save_file
+from miraitensors.tensorflow import load_file, save_file
 
 
 def _load(filename, tensors=None, prefix=""):

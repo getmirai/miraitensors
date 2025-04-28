@@ -4,7 +4,7 @@ from typing import Dict, Optional, Union
 
 import numpy as np
 
-from safetensors import deserialize, safe_open, serialize, serialize_file
+from miraitensors import deserialize, safe_open, serialize, serialize_file
 
 
 def _tobytes(tensor: np.ndarray) -> bytes:
@@ -15,7 +15,7 @@ def _tobytes(tensor: np.ndarray) -> bytes:
 
 def save(tensor_dict: Dict[str, np.ndarray], metadata: Optional[Dict[str, str]] = None) -> bytes:
     """
-    Saves a dictionary of tensors into raw bytes in safetensors format.
+    Saves a dictionary of tensors into raw bytes in miraitensors format.
 
     Args:
         tensor_dict (`Dict[str, np.ndarray]`):
@@ -31,7 +31,7 @@ def save(tensor_dict: Dict[str, np.ndarray], metadata: Optional[Dict[str, str]] 
     Example:
 
     ```python
-    from safetensors.numpy import save
+    from miraitensors.numpy import save
     import numpy as np
 
     tensors = {"embedding": np.zeros((512, 1024)), "attention": np.zeros((256, 256))}
@@ -48,7 +48,7 @@ def save_file(
     tensor_dict: Dict[str, np.ndarray], filename: Union[str, os.PathLike], metadata: Optional[Dict[str, str]] = None
 ) -> None:
     """
-    Saves a dictionary of tensors into raw bytes in safetensors format.
+    Saves a dictionary of tensors into raw bytes in miraitensors format.
 
     Args:
         tensor_dict (`Dict[str, np.ndarray]`):
@@ -66,11 +66,11 @@ def save_file(
     Example:
 
     ```python
-    from safetensors.numpy import save_file
+    from miraitensors.numpy import save_file
     import numpy as np
 
     tensors = {"embedding": np.zeros((512, 1024)), "attention": np.zeros((256, 256))}
-    save_file(tensors, "model.safetensors")
+    save_file(tensors, "model.miraitensors")
     ```
     """
     flattened = {k: {"dtype": v.dtype.name, "shape": v.shape, "data": _tobytes(v)} for k, v in tensor_dict.items()}
@@ -79,7 +79,7 @@ def save_file(
 
 def load(data: bytes) -> Dict[str, np.ndarray]:
     """
-    Loads a safetensors file into numpy format from pure bytes.
+    Loads a miraitensors file into numpy format from pure bytes.
 
     Args:
         data (`bytes`):
@@ -91,9 +91,9 @@ def load(data: bytes) -> Dict[str, np.ndarray]:
     Example:
 
     ```python
-    from safetensors.numpy import load
+    from miraitensors.numpy import load
 
-    file_path = "./my_folder/bert.safetensors"
+    file_path = "./my_folder/bert.miraitensors"
     with open(file_path, "rb") as f:
         data = f.read()
 
@@ -106,7 +106,7 @@ def load(data: bytes) -> Dict[str, np.ndarray]:
 
 def load_file(filename: Union[str, os.PathLike]) -> Dict[str, np.ndarray]:
     """
-    Loads a safetensors file into numpy format.
+    Loads a miraitensors file into numpy format.
 
     Args:
         filename (`str`, or `os.PathLike`)):
@@ -118,9 +118,9 @@ def load_file(filename: Union[str, os.PathLike]) -> Dict[str, np.ndarray]:
     Example:
 
     ```python
-    from safetensors.numpy import load_file
+    from miraitensors.numpy import load_file
 
-    file_path = "./my_folder/bert.safetensors"
+    file_path = "./my_folder/bert.miraitensors"
     loaded = load_file(file_path)
     ```
     """
