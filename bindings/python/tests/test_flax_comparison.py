@@ -8,8 +8,8 @@ if platform.system() != "Windows":
     import jax.numpy as jnp
     from jax import random
     from flax.serialization import msgpack_restore, msgpack_serialize
-    from safetensors import safe_open
-    from safetensors.flax import load_file, save_file
+    from miraitensors import safe_open
+    from miraitensors.flax import load_file, save_file
 
 
 # Jax doesn't not exist on Windows

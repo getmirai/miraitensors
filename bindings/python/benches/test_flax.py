@@ -3,7 +3,7 @@ import tempfile
 
 import jax.numpy as jnp
 from flax.serialization import msgpack_restore, msgpack_serialize
-from safetensors.flax import load_file, save_file
+from miraitensors.flax import load_file, save_file
 
 
 def create_gpt2(n_layers: int):

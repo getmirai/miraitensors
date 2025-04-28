@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import torch
 
-from safetensors import deserialize, safe_open, serialize, serialize_file
+from miraitensors import deserialize, safe_open, serialize, serialize_file
 
 
 def storage_ptr(tensor: torch.Tensor) -> int:
@@ -103,7 +103,7 @@ def _remove_duplicate_names(
                 "Error while trying to find names to remove to save state dict, but found no suitable name to keep"
                 f" for saving amongst: {shared}. None is covering the entire storage.Refusing to save/load the model"
                 " since you could be storing much more memory than needed. Please refer to"
-                " https://huggingface.co/docs/safetensors/torch_shared_tensors for more information. Or open an"
+                " https://huggingface.co/docs/miraitensors/torch_shared_tensors for more information. Or open an"
                 " issue."
             )
 
@@ -224,7 +224,7 @@ def load_model(
 
 def save(tensors: Dict[str, torch.Tensor], metadata: Optional[Dict[str, str]] = None) -> bytes:
     """
-    Saves a dictionary of tensors into raw bytes in safetensors format.
+    Saves a dictionary of tensors into raw bytes in miraitensors format.
 
     Args:
         tensors (`Dict[str, torch.Tensor]`):
@@ -240,7 +240,7 @@ def save(tensors: Dict[str, torch.Tensor], metadata: Optional[Dict[str, str]] = 
     Example:
 
     ```python
-    from safetensors.torch import save
+    from miraitensors.torch import save
     import torch
 
     tensors = {"embedding": torch.zeros((512, 1024)), "attention": torch.zeros((256, 256))}
@@ -258,7 +258,7 @@ def save_file(
     metadata: Optional[Dict[str, str]] = None,
 ):
     """
-    Saves a dictionary of tensors into raw bytes in safetensors format.
+    Saves a dictionary of tensors into raw bytes in miraitensors format.
 
     Args:
         tensors (`Dict[str, torch.Tensor]`):
@@ -276,11 +276,11 @@ def save_file(
     Example:
 
     ```python
-    from safetensors.torch import save_file
+    from miraitensors.torch import save_file
     import torch
 
     tensors = {"embedding": torch.zeros((512, 1024)), "attention": torch.zeros((256, 256))}
-    save_file(tensors, "model.safetensors")
+    save_file(tensors, "model.miraitensors")
     ```
     """
     serialize_file(_flatten(tensors), filename, metadata=metadata)
@@ -288,7 +288,7 @@ def save_file(
 
 def load_file(filename: Union[str, os.PathLike], device: Union[str, int] = "cpu") -> Dict[str, torch.Tensor]:
     """
-    Loads a safetensors file into torch format.
+    Loads a miraitensors file into torch format.
 
     Args:
         filename (`str`, or `os.PathLike`):
@@ -303,9 +303,9 @@ def load_file(filename: Union[str, os.PathLike], device: Union[str, int] = "cpu"
     Example:
 
     ```python
-    from safetensors.torch import load_file
+    from miraitensors.torch import load_file
 
-    file_path = "./my_folder/bert.safetensors"
+    file_path = "./my_folder/bert.miraitensors"
     loaded = load_file(file_path)
     ```
     """
@@ -318,7 +318,7 @@ def load_file(filename: Union[str, os.PathLike], device: Union[str, int] = "cpu"
 
 def load(data: bytes) -> Dict[str, torch.Tensor]:
     """
-    Loads a safetensors file into torch format from pure bytes.
+    Loads a miraitensors file into torch format from pure bytes.
 
     Args:
         data (`bytes`):
@@ -330,9 +330,9 @@ def load(data: bytes) -> Dict[str, torch.Tensor]:
     Example:
 
     ```python
-    from safetensors.torch import load
+    from miraitensors.torch import load
 
-    file_path = "./my_folder/bert.safetensors"
+    file_path = "./my_folder/bert.miraitensors"
     with open(file_path, "rb") as f:
         data = f.read()
 
@@ -489,7 +489,7 @@ def _flatten(tensors: Dict[str, torch.Tensor]) -> Dict[str, Dict[str, Any]]:
             f"""
             Some tensors share memory, this will lead to duplicate memory on disk and potential differences when loading them again: {failing}.
             A potential way to correctly save your model is to use `save_model`.
-            More information at https://huggingface.co/docs/safetensors/torch_shared_tensors
+            More information at https://huggingface.co/docs/miraitensors/torch_shared_tensors
             """
         )
 

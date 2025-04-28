@@ -4,8 +4,8 @@ import h5py
 import numpy as np
 import tensorflow as tf
 
-from safetensors import safe_open
-from safetensors.tensorflow import load_file, save_file
+from miraitensors import safe_open
+from miraitensors.tensorflow import load_file, save_file
 
 
 def _load(f, tensors=None, prefix=""):

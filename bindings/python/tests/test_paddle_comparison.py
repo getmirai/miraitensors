@@ -5,7 +5,7 @@ import numpy as np
 
 try:
     import paddle
-    from safetensors.paddle import load_file, save_file
+    from miraitensors.paddle import load_file, save_file
 
     HAS_PADDLE = True
 except ImportError:

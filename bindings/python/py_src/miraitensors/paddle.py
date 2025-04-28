@@ -4,12 +4,12 @@ from typing import Dict, Optional, Union
 import numpy as np
 
 import paddle
-from safetensors import numpy
+from miraitensors import numpy
 
 
 def save(tensors: Dict[str, paddle.Tensor], metadata: Optional[Dict[str, str]] = None) -> bytes:
     """
-    Saves a dictionary of tensors into raw bytes in safetensors format.
+    Saves a dictionary of tensors into raw bytes in miraitensors format.
 
     Args:
         tensors (`Dict[str, paddle.Tensor]`):
@@ -25,7 +25,7 @@ def save(tensors: Dict[str, paddle.Tensor], metadata: Optional[Dict[str, str]] =
     Example:
 
     ```python
-    from safetensors.paddle import save
+    from miraitensors.paddle import save
     import paddle
 
     tensors = {"embedding": paddle.zeros((512, 1024)), "attention": paddle.zeros((256, 256))}
@@ -42,7 +42,7 @@ def save_file(
     metadata: Optional[Dict[str, str]] = None,
 ) -> None:
     """
-    Saves a dictionary of tensors into raw bytes in safetensors format.
+    Saves a dictionary of tensors into raw bytes in miraitensors format.
 
     Args:
         tensors (`Dict[str, paddle.Tensor]`):
@@ -60,11 +60,11 @@ def save_file(
     Example:
 
     ```python
-    from safetensors.paddle import save_file
+    from miraitensors.paddle import save_file
     import paddle
 
     tensors = {"embedding": paddle.zeros((512, 1024)), "attention": paddle.zeros((256, 256))}
-    save_file(tensors, "model.safetensors")
+    save_file(tensors, "model.miraitensors")
     ```
     """
     np_tensors = _paddle2np(tensors)
@@ -73,7 +73,7 @@ def save_file(
 
 def load(data: bytes, device: str = "cpu") -> Dict[str, paddle.Tensor]:
     """
-    Loads a safetensors file into paddle format from pure bytes.
+    Loads a miraitensors file into paddle format from pure bytes.
 
     Args:
         data (`bytes`):
@@ -85,9 +85,9 @@ def load(data: bytes, device: str = "cpu") -> Dict[str, paddle.Tensor]:
     Example:
 
     ```python
-    from safetensors.paddle import load
+    from miraitensors.paddle import load
 
-    file_path = "./my_folder/bert.safetensors"
+    file_path = "./my_folder/bert.miraitensors"
     with open(file_path, "rb") as f:
         data = f.read()
 
@@ -100,7 +100,7 @@ def load(data: bytes, device: str = "cpu") -> Dict[str, paddle.Tensor]:
 
 def load_file(filename: Union[str, os.PathLike], device="cpu") -> Dict[str, paddle.Tensor]:
     """
-    Loads a safetensors file into paddle format.
+    Loads a miraitensors file into paddle format.
 
     Args:
         filename (`str`, or `os.PathLike`)):
@@ -115,9 +115,9 @@ def load_file(filename: Union[str, os.PathLike], device="cpu") -> Dict[str, padd
     Example:
 
     ```python
-    from safetensors.paddle import load_file
+    from miraitensors.paddle import load_file
 
-    file_path = "./my_folder/bert.safetensors"
+    file_path = "./my_folder/bert.miraitensors"
     loaded = load_file(file_path)
     ```
     """

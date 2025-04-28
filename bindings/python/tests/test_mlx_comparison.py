@@ -13,8 +13,8 @@ if platform.system() == "Darwin":
     except ImportError:
         pass
     if HAS_MLX:
-        from safetensors import safe_open
-        from safetensors.mlx import load_file, save_file
+        from miraitensors import safe_open
+        from miraitensors.mlx import load_file, save_file
 
 
 # MLX only exists on Mac

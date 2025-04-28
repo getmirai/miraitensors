@@ -3,8 +3,8 @@ import unittest
 
 import torch
 
-from safetensors import safe_open
-from safetensors.torch import (
+from miraitensors import safe_open
+from miraitensors.torch import (
     _end_ptr,
     _find_shared_tensors,
     _is_complete,

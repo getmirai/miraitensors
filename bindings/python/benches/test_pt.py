@@ -4,7 +4,7 @@ import tempfile
 import pytest
 import torch
 
-from safetensors.torch import load_file, save_file
+from miraitensors.torch import load_file, save_file
 
 
 def create_gpt2(n_layers: int):

@@ -10,7 +10,8 @@ use pyo3::Bound as PyBound;
 use pyo3::{intern, PyErr};
 use safetensors::slice::TensorIndexer;
 use safetensors::tensor::{
-    compute_size, serialize_u4, Dtype, Metadata, SafeTensors, TensorInfo, TensorView,
+    compute_size, deserialize_i4, deserialize_u4, serialize_u4, Dtype, Metadata, SafeTensors,
+    TensorInfo, TensorView,
 };
 use safetensors::View;
 use std::borrow::Cow;
@@ -586,8 +587,15 @@ impl Open {
 
         match &self.storage.as_ref() {
             Storage::Mmap(mmap) => {
-                let data =
-                    &mmap[info.data_offsets.0 + self.offset..info.data_offsets.1 + self.offset];
+                let data = match info.dtype {
+                    Dtype::PackedI4 | Dtype::PackedU4 => &deserialize_u4(
+                        &info.shape,
+                        &mmap[info.data_offsets.0 + self.offset..info.data_offsets.1 + self.offset],
+                    ),
+                    _ => {
+                        &mmap[info.data_offsets.0 + self.offset..info.data_offsets.1 + self.offset]
+                    }
+                };
 
                 let array: PyObject =
                     Python::with_gil(|py| PyByteArray::new(py, data).into_any().into());
@@ -1214,6 +1222,26 @@ fn get_pydtype(module: &PyBound<'_, PyModule>, dtype: Dtype, is_numpy: bool) -> 
             }
             Dtype::F8_E4M3 => module.getattr(intern!(py, "float8_e4m3fn"))?.into(),
             Dtype::F8_E5M2 => module.getattr(intern!(py, "float8_e5m2"))?.into(),
+            Dtype::PackedI4 => {
+                if is_numpy {
+                    module
+                        .getattr(intern!(py, "dtype"))?
+                        .call1(("int4",))?
+                        .into()
+                } else {
+                    module.getattr(intern!(py, "int4"))?.into()
+                }
+            }
+            Dtype::PackedU4 => {
+                if is_numpy {
+                    module
+                        .getattr(intern!(py, "dtype"))?
+                        .call1(("uint4",))?
+                        .into()
+                } else {
+                    module.getattr(intern!(py, "uint4"))?.into()
+                }
+            }
             dtype => {
                 return Err(SafetensorError::new_err(format!(
                     "Dtype not understood: {dtype:?}"
